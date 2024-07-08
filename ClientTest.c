@@ -12,7 +12,7 @@ int main() {
     struct sockaddr_in serv_addr;
     char buffer[BUFFER_SIZE] = {0};
 
-    // Create socket file descriptor
+    // Create socket, AF_INET for IPV6, SOCK_STREAM for TCP, Protocol Value:
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         perror("Socket creation error");
         return -1;
