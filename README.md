@@ -6,11 +6,13 @@ wsl
 
 g++ -g FileName.c -o FileName.out
 
-./FileName.exe
+./FileName.[exe/out]
 
 gcc KeyPoll.c -lcurses -lgpiod
 
 Update IP and recompile before running
+
+telnet [IPV4] 8080 
 
 Turn firewall off (?)
 
