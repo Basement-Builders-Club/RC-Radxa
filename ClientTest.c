@@ -22,7 +22,7 @@ int main() {
     serv_addr.sin_port = htons(PORT);
 
     // Convert IPv4 and IPv6 addresses from text to binary form
-    if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) {
+    if (inet_pton(AF_INET, "IPV4 HERE", &serv_addr.sin_addr) <= 0) {
         perror("Invalid address/ Address not supported");
         return -1;
     }
@@ -33,16 +33,26 @@ int main() {
         return -1;
     }
 
+    printf("Connected to the server\n");
+
     while (1) {
+        printf("Waiting for data...\n");
         // Read data from the server
         valread = read(sock, buffer, BUFFER_SIZE);
         if (valread > 0) {
             // Null-terminate the received string
             buffer[valread] = '\0';
+            printf("Received raw data: %s\n", buffer);
 
             // Convert the received string to a float and print it
             float angle = atof(buffer);
             printf("Received Angle: %f\n", angle);
+        } else if (valread < 0) {
+            perror("Read error");
+            break;
+        } else {
+            printf("Connection closed by server\n");
+            break;
         }
     }
 
