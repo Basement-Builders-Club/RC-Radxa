@@ -1,4 +1,0 @@
-wsl
-g++ -g FileName.c -o FileName.out
-./FileName.exe
-gcc KeyPoll.c -lcurses -lgpiod
