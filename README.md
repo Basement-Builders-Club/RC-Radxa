@@ -4,13 +4,11 @@
 
 wsl
 
-g++ -g FileName.c -o FileName.out
+gcc -o RC RC.c -lgpiod
 
-./FileName.[exe/out]
+./RC
 
-gcc KeyPoll.c -lcurses -lgpiod
-
-Update IP and recompile before running
+Update IP or set IPV4 environment var and recompile before running
 
 telnet [IPV4] 8080 
 

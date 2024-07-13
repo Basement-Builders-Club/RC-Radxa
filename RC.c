@@ -7,7 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
-//#include <gpiod.h>
+#include <gpiod.h>
 
 #define PORT 8080
 #define BUFFER_SIZE 256
@@ -15,45 +15,43 @@
 #define WHEEL_MAX 360
 
 int InitTCP(int *sock, struct sockaddr_in *serv_addr);
-//int InitGPIO(struct gpiod_chip *chip, struct gpiod_line *lineLED, struct gpiod_line *lineButton);
+int InitGPIO(struct gpiod_chip *chip, struct gpiod_line *lineLED, struct gpiod_line *lineButton);
 int Read(int sock, float *wheelAngle, bool *accelerator);
-//int SetLED(int wheelAngle, gpiod_line *lineLED);
+int SetLED(int wheelAngle, struct gpiod_line *lineLED);
 
 int main() {
     int sock = 0;
     float wheelAngle;
     bool accelerator;
     struct sockaddr_in serv_addr;
-    //struct gpiod_chip *chip;
-    //struct gpiod_line *lineLED;
-    //struct gpiod_line *lineButton;
+    struct gpiod_chip *chip;
+    struct gpiod_line *lineLED;
+    struct gpiod_line *lineButton;
 
     // Initialize TCP connection
     if (InitTCP(&sock, &serv_addr) < 0) {
         return -1;
     }
-    //InitGPIO(chip, lineLED, lineButton);
+    InitGPIO(chip, lineLED, lineButton);
 
     // Main loop
     while (1) {
         if (!Read(sock, &wheelAngle, &accelerator)) {
             break;
         }
-        //int PWM = SetLED(wheelAngle, lineLED);
+        int PWM = SetLED(wheelAngle, lineLED);
         printf("Received Angle: %f\n", wheelAngle);
         printf("Accelerator: %d\n", accelerator);
-        //printf("PWM: %d\n", PWM);
+        printf("PWM: %d\n", PWM);
     }
 
     // Close the socket
     close(sock);
 
     // Close GPIO
-    /*
     gpiod_line_release(lineLED);
     gpiod_line_release(lineButton);
     gpiod_chip_close(chip);
-    */
 
     return 0;
 }
@@ -94,7 +92,6 @@ int InitTCP(int *sock, struct sockaddr_in *serv_addr) {
 Initializes the GPIO
 Sets chip, linLED, and lineButton pointers
 */
-/*
 int InitGPIO(struct gpiod_chip *chip, struct gpiod_line *lineLED, struct gpiod_line *lineButton) {
     // GPIO Init
     const char *chipname = "gpiochip3";
@@ -108,7 +105,6 @@ int InitGPIO(struct gpiod_chip *chip, struct gpiod_line *lineLED, struct gpiod_l
 
     return 1;
 }
-*/
 
 /*
 Reads data from Unity
@@ -160,8 +156,7 @@ int Read(int sock, float *wheelAngle, bool *accelerator) {
 /*
 Sets LEDs on GPIO
 */
-/*
-int SetLED(int wheelAngle, gpiod_line *lineLED) {
+int SetLED(int wheelAngle, struct gpiod_line *lineLED) {
     // Calculate PWM duty cycle (0% to 100%)
     int duty_cycle = (wheelAngle - WHEEL_MIN) / (WHEEL_MAX - WHEEL_MIN);
 
@@ -177,4 +172,3 @@ int SetLED(int wheelAngle, gpiod_line *lineLED) {
 
     return PWM;
 }
-*/
