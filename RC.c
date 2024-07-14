@@ -15,9 +15,9 @@
 #define WHEEL_MAX 360
 
 int InitTCP(int *sock, struct sockaddr_in *serv_addr);
-int InitGPIO(struct gpiod_chip *chip, struct gpiod_line *lineLED, struct gpiod_line *lineButton);
+int InitGPIO(struct gpiod_chip **chip, struct gpiod_line **lineLED, struct gpiod_line **lineButton);
 int Read(int sock, float *wheelAngle, bool *accelerator);
-int SetLED(int wheelAngle, struct gpiod_line *lineLED);
+bool SetLED(int wheelAngle, struct gpiod_line *lineLED);
 
 int main() {
     int sock = 0;
@@ -32,7 +32,7 @@ int main() {
     if (InitTCP(&sock, &serv_addr) < 0) {
         return -1;
     }
-    InitGPIO(chip, lineLED, lineButton);
+    InitGPIO(&chip, &lineLED, &lineButton);
 
     // Main loop
     while (1) {
@@ -92,16 +92,16 @@ int InitTCP(int *sock, struct sockaddr_in *serv_addr) {
 Initializes the GPIO
 Sets chip, linLED, and lineButton pointers
 */
-int InitGPIO(struct gpiod_chip *chip, struct gpiod_line *lineLED, struct gpiod_line *lineButton) {
+int InitGPIO(struct gpiod_chip **chip, struct gpiod_line **lineLED, struct gpiod_line **lineButton) {
     // GPIO Init
     const char *chipname = "gpiochip3";
 
-    chip = gpiod_chip_open_by_name(chipname);
-    lineLED = gpiod_chip_get_line(chip, 1);
-    lineButton = gpiod_chip_get_line(chip, 2);
+    *chip = gpiod_chip_open_by_name(chipname);
+    *lineLED = gpiod_chip_get_line(*chip, 1);
+    *lineButton = gpiod_chip_get_line(*chip, 2);
 
-    gpiod_line_request_output(lineLED, "out", 0);
-    gpiod_line_request_input(lineButton, "in");
+    gpiod_line_request_output(*lineLED, "out", 0);
+    gpiod_line_request_input(*lineButton, "in");
 
     return 1;
 }
