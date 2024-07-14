@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 ## Code to be ran on Radxa facilitating input and video transmission.
 
 ## WSL info:
@@ -77,4 +76,3 @@ https://docs.radxa.com/en/zero/zero3/accessories/zero3w-antenna <- External ante
 https://docs.radxa.com/en/zero/zero3/app-development/gpiod <- GPIO usage
 https://docs.radxa.com/en/zero/zero3/app-development/mraa <- MRAA usage
 https://docs.radxa.com/en/zero/zero3/getting-started <- Getting started
->>>>>>> GPIO
