@@ -7,7 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
-//#include <gpiod.h>
+#include <gpiod.h>
 
 #define PORT 8080
 #define BUFFER_SIZE 256
@@ -15,51 +15,49 @@
 #define WHEEL_MAX 360
 
 int InitTCP(int *sock, struct sockaddr_in *serv_addr);
-//int InitGPIO(struct gpiod_chip *chip, struct gpiod_line *lineLED, struct gpiod_line *lineButton);
+int InitGPIO(struct gpiod_chip **chip, struct gpiod_line **lineLED, struct gpiod_line **lineButton);
 int Read(int sock, float *wheelAngle, bool *accelerator);
-//int SetLED(int wheelAngle, gpiod_line *lineLED);
+bool SetLED(int wheelAngle, struct gpiod_line *lineLED);
 
 int main() {
     int sock = 0;
     float wheelAngle;
     bool accelerator;
     struct sockaddr_in serv_addr;
-    //struct gpiod_chip *chip;
-    //struct gpiod_line *lineLED;
-    //struct gpiod_line *lineButton;
+    struct gpiod_chip *chip;
+    struct gpiod_line *lineLED;
+    struct gpiod_line *lineButton;
 
     // Initialize TCP connection
     if (InitTCP(&sock, &serv_addr) < 0) {
         return -1;
     }
-    //InitGPIO(chip, lineLED, lineButton);
+    InitGPIO(&chip, &lineLED, &lineButton);
 
     // Main loop
     while (1) {
         if (!Read(sock, &wheelAngle, &accelerator)) {
             break;
         }
-        //int PWM = SetLED(wheelAngle, lineLED);
+
         printf("Received Angle: %f\n", wheelAngle);
         printf("Accelerator: %d\n", accelerator);
-        //printf("PWM: %d\n", PWM);
+        printf("LED: %i\n", SetLED(wheelAngle, lineLED));
     }
 
     // Close the socket
     close(sock);
 
     // Close GPIO
-    /*
     gpiod_line_release(lineLED);
     gpiod_line_release(lineButton);
     gpiod_chip_close(chip);
-    */
 
     return 0;
 }
 
 int InitTCP(int *sock, struct sockaddr_in *serv_addr) {
-    const char *ip = getenv("IPV4");
+    const char *ip = "192.168.1.18";//getenv("IPV4");
     if (ip == NULL) {
         fprintf(stderr, "Environment variable IPV4 is not set\n");
         return -1;
@@ -94,21 +92,19 @@ int InitTCP(int *sock, struct sockaddr_in *serv_addr) {
 Initializes the GPIO
 Sets chip, linLED, and lineButton pointers
 */
-/*
-int InitGPIO(struct gpiod_chip *chip, struct gpiod_line *lineLED, struct gpiod_line *lineButton) {
+int InitGPIO(struct gpiod_chip **chip, struct gpiod_line **lineLED, struct gpiod_line **lineButton) {
     // GPIO Init
     const char *chipname = "gpiochip3";
 
-    chip = gpiod_chip_open_by_name(chipname);
-    lineLED = gpiod_chip_get_line(chip, 1);
-    lineButton = gpiod_chip_get_line(chip, 2);
+    *chip = gpiod_chip_open_by_name(chipname);
+    *lineLED = gpiod_chip_get_line(*chip, 1);
+    *lineButton = gpiod_chip_get_line(*chip, 2);
 
-    gpiod_line_request_output(lineLED,"out", 0);
-    gpiod_line_request_input(lineButton, "in");
+    gpiod_line_request_output(*lineLED, "out", 0);
+    gpiod_line_request_input(*lineButton, "in");
 
     return 1;
 }
-*/
 
 /*
 Reads data from Unity
@@ -118,7 +114,7 @@ int Read(int sock, float *wheelAngle, bool *accelerator) {
     char buffer[BUFFER_SIZE] = {0};
 
     printf("Waiting for data...\n");
-    
+
     // Read data from the server
     valread = read(sock, buffer, BUFFER_SIZE);
     if (valread > 0) {
@@ -160,21 +156,19 @@ int Read(int sock, float *wheelAngle, bool *accelerator) {
 /*
 Sets LEDs on GPIO
 */
-/*
-int SetLED(int wheelAngle, gpiod_line *lineLED) {
+bool SetLED(int wheelAngle, struct gpiod_line *lineLED) {
     // Calculate PWM duty cycle (0% to 100%)
-    int duty_cycle = (wheelAngle - WHEEL_MIN) / (WHEEL_MAX - WHEEL_MIN);
+    float duty_cycle = ((float) wheelAngle - WHEEL_MIN) / (WHEEL_MAX - WHEEL_MIN);
 
-    // Start PWM sequence
-    gpiod_line_set_value(lineLED, 1); //on
-
-    // Simulate PWM operation (adjust as needed for actual GPIO operation)
+    //gpiod_line_set_value(lineLED, 1); //on
     int PWM = duty_cycle * 1000;
-    usleep(duty_cycle * 1000); // Sleep proportional to duty cycle (in milliseconds)
 
-    // End PWM sequence
-    gpiod_line_set_value(lineLED, 0); //off
-
-    return PWM;
+    if(PWM > 500){
+        gpiod_line_set_value(lineLED, 1);
+        return true;
+    }
+    else{
+        gpiod_line_set_value(lineLED, 0);
+        return false;
+    }
 }
-*/
