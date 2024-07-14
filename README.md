@@ -34,9 +34,13 @@ Desktop switch
 CLI: systemctl set-default multi-user.target.
 GUI: systemctl set-default graphical.target
 
-Other useful links to use
-https://docs.radxa.com/en/zero/zero3/accessories/camera <- Camera setup
-https://docs.radxa.com/en/zero/zero3/accessories/zero3w-antenna <- External antenna
-https://docs.radxa.com/en/zero/zero3/app-development/gpiod <- GPIO usage
-https://docs.radxa.com/en/zero/zero3/app-development/mraa <- MRAA usage
-https://docs.radxa.com/en/zero/zero3/getting-started <- Getting started
+## Other links/hardware
+Camera setup: https://docs.radxa.com/en/zero/zero3/accessories/camera
+
+External antenna: https://docs.radxa.com/en/zero/zero3/accessories/zero3w-antenna
+
+GPIO usage: https://docs.radxa.com/en/zero/zero3/app-development/gpiod
+
+MRAA usage: https://docs.radxa.com/en/zero/zero3/app-development/mraa
+
+Getting started: https://docs.radxa.com/en/zero/zero3/getting-started
