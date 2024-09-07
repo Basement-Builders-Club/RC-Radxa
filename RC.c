@@ -57,7 +57,7 @@ int main() {
 }
 
 int InitTCP(int *sock, struct sockaddr_in *serv_addr) {
-    const char *ip = "192.168.1.18";//getenv("IPV4");
+    const char *ip = "10.42.0.171";//"192.168.1.18";//getenv("IPV4");
     if (ip == NULL) {
         fprintf(stderr, "Environment variable IPV4 is not set\n");
         return -1;
@@ -158,17 +158,17 @@ Sets LEDs on GPIO
 */
 bool SetLED(int wheelAngle, struct gpiod_line *lineLED) {
     // Calculate PWM duty cycle (0% to 100%)
+    if (wheelAngle > WHEEL_MAX) wheelAngle = WHEEL_MAX;
+    if (wheelAngle < WHEEL_MIN) wheelAngle = WHEEL_MIN;
     float duty_cycle = ((float) wheelAngle - WHEEL_MIN) / (WHEEL_MAX - WHEEL_MIN);
 
     //gpiod_line_set_value(lineLED, 1); //on
     int PWM = duty_cycle * 1000;
 
-    if(PWM > 500){
-        gpiod_line_set_value(lineLED, 1);
-        return true;
-    }
-    else{
-        gpiod_line_set_value(lineLED, 0);
-        return false;
-    }
+    //on
+    gpiod_line_set_value(lineLED, 1);
+    usleep(PWM);
+    //off
+    gpiod_line_set_value(lineLED, 0);
+    usleep(1001 - PWM);
 }
