@@ -1,5 +1,14 @@
 ## Code to be ran on Radxa facilitating input and video transmission.
 
+## General
+TCP Listener (Server) is run from Unity
+
+TCP Client (Client) is RC.c, or the RC executable
+
+Make sure that inbound firewalls are open for Unity on the computer running it.
+
+Connect to the Radxa access point from the server computer, and use ipconfig to find the IP that is used in RC.c.
+
 ## WSL info:
 
 wsl
