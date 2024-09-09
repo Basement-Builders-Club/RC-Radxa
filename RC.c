@@ -103,7 +103,8 @@ void* threadLED(void* args) {
 
 // Initialize TCP connection
 int InitTCP(int *sock, struct sockaddr_in *serv_addr) {
-    const char *ip = "192.168.1.18";
+    const char *ip = getenv("IPV4"); // alternatively hardcode in your IPV4
+
     if (ip == NULL) {
         fprintf(stderr, "Environment variable IPV4 is not set\n");
         return -1;
