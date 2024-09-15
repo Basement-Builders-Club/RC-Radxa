@@ -16,13 +16,13 @@
 
 int InitTCP(int *sock, struct sockaddr_in *serv_addr);
 int InitGPIO(struct gpiod_chip **chip, struct gpiod_line **lineLED, struct gpiod_line **lineButton);
-int Read(int sock, float *wheelAngle, bool *accelerator);
-bool SetLED(float wheelAngle, struct gpiod_line *lineLED, int *ledValue);
+int Read(int sock, int *wheelAngle, bool *accelerator);
+bool SetLED(int wheelAngle, struct gpiod_line *lineLED, int *ledValue);
 void *threadLED(void *args);
 
 struct LEDArgs
 {
-    float *wheelAngle;
+    int *wheelAngle;
     struct gpiod_line *lineLED;
     int *ledValue;
 };
@@ -30,7 +30,7 @@ struct LEDArgs
 int main()
 {
     int sock = 0;
-    float wheelAngle = 0;
+    int wheelAngle = 0;
     bool accelerator = false;
     int ledValue = 0;
     struct sockaddr_in serv_addr;
@@ -65,7 +65,7 @@ int main()
             break;
         }
 
-        printf("Received Angle: %f\n", wheelAngle);
+        printf("Received Angle: %d\n", wheelAngle);
         printf("Accelerator: %d\n", accelerator);
         printf("LED: %i\n", ledValue);
 
@@ -161,7 +161,7 @@ int InitGPIO(struct gpiod_chip **chip, struct gpiod_line **lineLED, struct gpiod
 }
 
 // Read data from Unity
-int Read(int sock, float *wheelAngle, bool *accelerator)
+int Read(int sock, int *wheelAngle, bool *accelerator)
 {
     int valread;
     char buffer[BUFFER_SIZE] = {0};
@@ -173,23 +173,25 @@ int Read(int sock, float *wheelAngle, bool *accelerator)
     {
         buffer[valread] = '\0';
         printf("Received raw data: %s\n", buffer);
-        char *batch = strtok(buffer, ";");
-
+        char *batch = strtok(buffer, ";")
         char *token = strtok(batch, ",");
-        if (token != NULL)
-        {
-            *wheelAngle = atof(token);
 
+        // if not null and the first character is ~, our start signal,
+        // it is possible this is valid data
+        if (token != NULL && strcmp(token, "~") == 0)
+        {
+            // if next token is not null, it's wheel angle
+            token = strtok(NULL, ",");
+            if (token != NULL)
+            {
+                *wheelAngle = atoi(token);
+            }
+
+            // if next token is not null, it's trigger state
             token = strtok(NULL, ",");
             if (token != NULL)
             {
                 *accelerator = atoi(token);
-            }
-            else
-            {
-                printf("Error: Missing trigger state\n");
-                *accelerator = 0;
-                // return 0;
             }
         }
         else
@@ -213,7 +215,7 @@ int Read(int sock, float *wheelAngle, bool *accelerator)
 }
 
 // Set LEDs on GPIO
-bool SetLED(float wheelAngle, struct gpiod_line *lineLED, int *ledValue)
+bool SetLED(int wheelAngle, struct gpiod_line *lineLED, int *ledValue)
 {
     // Calculate PWM duty cycle (0% to 100%)
     if (wheelAngle > WHEEL_MAX)
