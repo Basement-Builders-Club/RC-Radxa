@@ -173,8 +173,9 @@ int Read(int sock, float *wheelAngle, bool *accelerator)
     {
         buffer[valread] = '\0';
         printf("Received raw data: %s\n", buffer);
+        char *batch = strtok(buffer, ";");
 
-        char *token = strtok(buffer, ",");
+        char *token = strtok(batch, ",");
         if (token != NULL)
         {
             *wheelAngle = atof(token);
@@ -194,13 +195,13 @@ int Read(int sock, float *wheelAngle, bool *accelerator)
         else
         {
             printf("Error: Invalid data format\n");
-            return 0;
+            //return 0;
         }
     }
     else if (valread < 0)
     {
         perror("Read error");
-        return 0;
+        //return 0;
     }
     else
     {
