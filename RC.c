@@ -7,7 +7,7 @@
 #include <pthread.h>
 
 #define PORT 8080
-#define BUFFER_SIZE 256
+#define BUFFER_SIZE 8
 #define WHEEL_MIN 0
 #define WHEEL_MAX 360
 
@@ -16,7 +16,7 @@
 
 int InitTCP(int *sock, struct sockaddr_in *serv_addr);
 int InitGPIO(struct gpiod_chip **chip, struct gpiod_line **lineLED, struct gpiod_line **lineButton);
-int Read(int sock, int *wheelAngle, bool *accelerator);
+int Read(int sock, int *wheelAngle, int *accelerator);
 bool SetLED(int wheelAngle, struct gpiod_line *lineLED, int *ledValue);
 void *threadLED(void *args);
 
@@ -31,7 +31,7 @@ int main()
 {
     int sock = 0;
     int wheelAngle = 0;
-    bool accelerator = false;
+    int accelerator = 1;
     int ledValue = 0;
     struct sockaddr_in serv_addr;
     struct gpiod_chip *chip;
@@ -161,17 +161,17 @@ int InitGPIO(struct gpiod_chip **chip, struct gpiod_line **lineLED, struct gpiod
 }
 
 // Read data from Unity
-int Read(int sock, int *wheelAngle, bool *accelerator)
+int Read(int sock, int *wheelAngle, int *accelerator)
 {
     int valread;
-    char buffer[BUFFER_SIZE] = {0};
+    char buffer[BUFFER_SIZE + 1] = {0};
 
     printf("Waiting for data...\n");
 
     valread = read(sock, buffer, BUFFER_SIZE);
     if (valread > 0)
     {
-        buffer[valread] = '\0';
+        buffer[BUFFER_SIZE] = '\0';
         printf("Received raw data: %s\n", buffer);
         char *batch = strtok(buffer, ";")
         char *token = strtok(batch, ",");
