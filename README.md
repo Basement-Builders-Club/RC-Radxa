@@ -1,5 +1,12 @@
 ## Code to be ran on Radxa facilitating input and video transmission.
 
+## Interface info
+Running PoseClient after starting the scene will run a test client
+
+Up arrow and down arrow control trigger forward/backward in the XR sim
+
+Trigger 0, 1, and 2 mean backward, still, and forward respectively.
+
 ## General
 TCP Listener (Server) is run from Unity
 
