@@ -1,4 +1,5 @@
 ## Code to be ran on Radxa facilitating input and video transmission.
+RC.c is the current working file.
 
 ## Interface info
 Running PoseClient after starting the scene will run a test client
@@ -49,6 +50,12 @@ ffplay -probesize 32 -analyzeduration 0 -sync ext -fflags nobuffer -fflags disca
 Desktop switch
 CLI: systemctl set-default multi-user.target.
 GUI: systemctl set-default graphical.target
+
+## Oscilloscope info:
+For motor testing:
+- Go by wire colors
+For servo testing:
+- TODO: fix variable clock speed?
 
 ## Other links/hardware
 Camera setup: https://docs.radxa.com/en/zero/zero3/accessories/camera

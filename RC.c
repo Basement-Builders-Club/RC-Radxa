@@ -10,201 +10,188 @@
 #define BUFFER_SIZE 256
 #define WHEEL_MIN 0
 #define WHEEL_MAX 360
+#define DUTY_CYCLE_PERIOD_MICROSEC 20000
+#define PACKET_CHAR_LEN 5
 
-// Declare the mutex globally
-//pthread_mutex_t lock;
+int Init_TCP (int *sock, struct sockaddr_in *serv_addr);
+int Init_GPIO (struct gpiod_chip **chip, struct gpiod_line **linePWM, struct gpiod_line **lineButton);
+bool Read (int sock, int *wheelAngle, bool *accelerator);
+bool Set_PWM (int wheelAngle, struct gpiod_line *linePWM, int* PWMValue);
+void* Thread_PWM (void* args);
 
-int InitTCP(int *sock, struct sockaddr_in *serv_addr);
-int InitGPIO(struct gpiod_chip **chip, struct gpiod_line **lineLED, struct gpiod_line **lineButton);
-int Read(int sock, int *wheelAngle, bool *accelerator);
-bool SetLED(int wheelAngle, struct gpiod_line *lineLED, int* ledValue);
-void* threadLED(void* args);
-
-struct LEDArgs {
+struct PWMArgs
+{
     int* wheelAngle;
-    struct gpiod_line* lineLED;
-    int* ledValue;
+    struct gpiod_line* linePWM;
+    int* PWMValue;
 };
 
-int main() {
+int main()
+{
     int sock = 0;
     int wheelAngle = 0;
     bool accelerator = false;
-    int ledValue = 0;
+    int PWMValue = 0;
     struct sockaddr_in serv_addr;
     struct gpiod_chip *chip;
-    struct gpiod_line *lineLED;
+    struct gpiod_line *linePWM;
     struct gpiod_line *lineButton;
 
-    // Initialize mutex
-    //pthread_mutex_init(&lock, NULL);
-
     // Initialize TCP connection
-    if (InitTCP(&sock, &serv_addr) < 0) {
+    if (Init_TCP(&sock, &serv_addr) < 0)
         return -1;
-    }
-    InitGPIO(&chip, &lineLED, &lineButton);
+    
+    Init_GPIO(&chip, &linePWM, &lineButton);
 
-    // Initialize LED PWM thread
-    struct LEDArgs ledArgs = {&wheelAngle, lineLED, &ledValue};
-    pthread_t ledThread;
-    pthread_create(&ledThread, NULL, threadLED, (void*) &ledArgs);
+    // Initialize PWM thread
+    struct PWMArgs pwmArgs = {&wheelAngle, linePWM, &PWMValue};
+    pthread_t pwmThread;
+    pthread_create (&pwmThread, NULL, Thread_PWM, (void*) &pwmArgs);
 
     // Main loop
     while (1) {
-        // Lock mutex before updating the wheel angle
-        //pthread_mutex_lock(&lock);
-
-        if (!Read(sock, &wheelAngle, &accelerator)) {
-            //pthread_mutex_unlock(&lock);
+        // If read fails, continue
+        if (!Read (sock, &wheelAngle, &accelerator))
             break;
-        }
 
-        printf("Received Angle: %d\n", wheelAngle);
-        printf("Accelerator: %d\n", accelerator);
-        printf("LED: %i\n", ledValue);
-
-        // Unlock mutex after updating the wheel angle
-        //pthread_mutex_unlock(&lock);
-
-        // Sleep for 100ms to let CPU chill
-        //usleep(100000);
+        printf ("Received Angle: %d\n", wheelAngle);
+        printf ("Accelerator: %d\n", accelerator);
+        printf ("PWM: %i\n", PWMValue);
     }
 
     // Close the socket
-    close(sock);
+    close (sock);
 
     // Close GPIO
-    gpiod_line_release(lineLED);
-    gpiod_line_release(lineButton);
-    gpiod_chip_close(chip);
-
-    // Destroy mutex
-    //pthread_mutex_destroy(&lock);
+    gpiod_line_release (linePWM);
+    gpiod_line_release (lineButton);
+    gpiod_chip_close (chip);
 
     return 0;
-}
-
-// Thread function for LED handling
-void* threadLED(void* args) {
-    struct LEDArgs* ledArgs = (struct LEDArgs*) args;
-    while (1) {
-        // Lock mutex before accessing the wheel angle
-        //pthread_mutex_lock(&lock);
-
-        // Use the wheelAngle value for LED control
-        SetLED(*(ledArgs->wheelAngle), ledArgs->lineLED, ledArgs->ledValue);
-
-        // Unlock mutex after reading the wheel angle
-        //pthread_mutex_unlock(&lock);
-    }
-    return NULL;
-}
-
-// Initialize TCP connection
-int InitTCP(int *sock, struct sockaddr_in *serv_addr) {
-    const char *ip = "10.42.0.171"; // alternatively hardcode in your IPV4
-
-    if (ip == NULL) {
-        fprintf(stderr, "Environment variable IPV4 is not set\n");
-        return -1;
-    }
-
-    if ((*sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        perror("Socket creation error");
-        return -1;
-    }
-
-    serv_addr->sin_family = AF_INET;
-    serv_addr->sin_port = htons(PORT);
-
-    if (inet_pton(AF_INET, ip, &serv_addr->sin_addr) <= 0) {
-        perror("Invalid address/ Address not supported");
-        return -1;
-    }
-
-    if (connect(*sock, (struct sockaddr*)serv_addr, sizeof(*serv_addr)) < 0) {
-        perror("Connection Failed");
-        return -1;
-    }
-
-    printf("Connected to the server\n");
-    return 0;
-}
-
-// Initialize GPIO
-int InitGPIO(struct gpiod_chip **chip, struct gpiod_line **lineLED, struct gpiod_line **lineButton) {
-    const char *chipname = "gpiochip3";
-
-    *chip = gpiod_chip_open_by_name(chipname);
-    *lineLED = gpiod_chip_get_line(*chip, 1);
-    *lineButton = gpiod_chip_get_line(*chip, 2);
-
-    gpiod_line_request_output(*lineLED, "out", 0);
-    gpiod_line_request_input(*lineButton, "in");
-
-    return 1;
 }
 
 // Read data from Unity
-int Read(int sock, int *wheelAngle, bool *accelerator) {
+bool Read (int sock, int *wheelAngle, bool *accelerator)
+{
     int valread;
     char buffer[BUFFER_SIZE] = {0};
 
-    printf("Waiting for data...\n");
+    printf ("Waiting for data...\n");
 
-    valread = read(sock, buffer, BUFFER_SIZE);
-    if (valread > 0) {
-        buffer[valread] = '\0';
-        printf("Received raw data: %s\n", buffer);
+    valread = read (sock, buffer, BUFFER_SIZE);
+    
+    // If didnt read, print this to terminal
+    if (valread < 0)
+        printf ("Read error");
+    // Check for packet completeness
+    if (valread < sizeof (char) * PACKET_CHAR_LEN)
+        printf ("Incomplete packet\n");
 
-        char* token = strtok(buffer, ",");
-        if (token == "~") {
-            token = strtok(NULL, ",");
-            if (token != NULL) {
-                *wheelAngle = atoi(token);
-            } else {
-                printf("Error: Missing wheel state\n");
-                return 0;
-            }
+    buffer[valread] = '\0';
+    printf ("Received raw data: %s\n", buffer);
 
-            token = strtok(NULL, ",");
-            if (token != NULL) {
-                *accelerator = atoi(token);
-            } else {
-                printf("Error: Missing trigger state\n");
-                return 0;
-            }
-        } else {
-            printf("Error: Invalid data format\n");
-            return 0;
-        }
-    } else if (valread < 0) {
-        perror("Read error");
-        return 0;
-    } else {
-        printf("Connection closed by server\n");
-        return 0;
+    // Check for ~ sentinel value
+    char* token = strtok (buffer, ",");
+    if (token == NULL || strcmp (token, "~") != 0) {
+        printf ("Error: Invalid data format\n");
+        return false;
     }
 
-    return 1;
+    // Get wheel angle
+    token = strtok (NULL, ",");
+    if (token == NULL) {
+        printf ("Error: Missing wheel angle\n");
+        return false;
+    }
+    *wheelAngle = atoi (token);
+
+    // Get accelerator value
+    token = strtok (NULL, ",");
+    if (token == NULL) {
+        printf ("Error: Missing trigger state\n");
+        return false;
+    }
+    *accelerator = atoi (token);
+
+    return true;
 }
 
-// Set LEDs on GPIO
-bool SetLED (int wheelAngle, struct gpiod_line *lineLED, int* ledValue) {
-     // Calculate PWM duty cycle (0% to 100%)
+// Set PWM for GPIO
+bool Set_PWM (int wheelAngle, struct gpiod_line *linePWM, int* PWMValue)
+{
+    // Calculate PWM duty cycle (0% to 100%)
     if (wheelAngle > WHEEL_MAX) wheelAngle = WHEEL_MAX;
     if (wheelAngle < WHEEL_MIN) wheelAngle = WHEEL_MIN;
     float duty_cycle = ((float) wheelAngle - WHEEL_MIN) / (WHEEL_MAX - WHEEL_MIN);
 
-    //gpiod_line_set_value(lineLED, 1); //on
-    int PWM = duty_cycle * 100;
-    *ledValue = PWM;
+    int PWM = duty_cycle * DUTY_CYCLE_PERIOD_MICROSEC;
+    *PWMValue = PWM;
 
     //on
-    gpiod_line_set_value(lineLED, 1);
-    usleep(PWM);
+    gpiod_line_set_value (linePWM, 1);
+    usleep (PWM);
     //off
-    gpiod_line_set_value(lineLED, 0);
-    usleep(101 - PWM);
+    gpiod_line_set_value (linePWM, 0);
+    usleep (DUTY_CYCLE_PERIOD_MICROSEC + 1 - PWM);
+}
+
+// Thread function for PWM handling
+void* Thread_PWM(void* args) {
+    struct PWMArgs* pwmArgs = (struct PWMArgs*) args;
+
+    // Use the wheelAngle value for PWM control
+    while (1)
+        Set_PWM(*(pwmArgs->wheelAngle), pwmArgs->linePWM, pwmArgs->PWMValue);
+
+    return NULL;
+}
+
+/*********** INIT FUNCS *************/
+
+// Initialize TCP connection
+int Init_TCP (int *sock, struct sockaddr_in *serv_addr)
+{
+    const char *ip = "10.42.0.171"; // alternatively hardcode in your IPV4
+
+    // IP validity check
+    if (ip == NULL) {
+        fprintf (stderr, "Environment variable IPV4 is not set\n");
+        return -1;
+    }
+
+    if ((*sock = socket (AF_INET, SOCK_STREAM, 0)) < 0) {
+        perror ("Socket creation error");
+        return -1;
+    }
+
+    serv_addr->sin_family = AF_INET;
+    serv_addr->sin_port = htons (PORT);
+
+    if (inet_pton (AF_INET, ip, &serv_addr->sin_addr) <= 0) {
+        perror ("Invalid address/ Address not supported");
+        return -1;
+    }
+
+    if (connect (*sock, (struct sockaddr*) serv_addr, sizeof (*serv_addr)) < 0) {
+        perror ("Connection Failed");
+        return -1;
+    }
+
+    printf ("Connected to the server\n");
+    return 0;
+}
+
+// Initialize GPIO
+int Init_GPIO(struct gpiod_chip **chip, struct gpiod_line **linePWM, struct gpiod_line **lineButton)
+{
+    const char *chipname = "gpiochip3";
+
+    *chip = gpiod_chip_open_by_name (chipname);
+    *linePWM = gpiod_chip_get_line (*chip, 1);
+    *lineButton = gpiod_chip_get_line (*chip, 2);
+
+    gpiod_line_request_output (*linePWM, "out", 0);
+    gpiod_line_request_input (*lineButton, "in");
+
+    return 1;
 }
