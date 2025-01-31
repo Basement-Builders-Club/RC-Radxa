@@ -1,3 +1,9 @@
+## TODO
+Combine RC_Motor & RC_Servo
+Isolate core on Radxa to run RC.c isolated from OS and other programs
+Fix Unity (currently controllers not working properly)
+Build
+
 ## Code to be ran on Radxa facilitating input and video transmission.
 RC.c is the current working file.
 
@@ -51,11 +57,29 @@ Desktop switch
 CLI: systemctl set-default multi-user.target.
 GUI: systemctl set-default graphical.target
 
-## Oscilloscope info:
+Compilation:
+gcc -o [file] [file].c -lgpiod -lpthread -O3 -march=armv8.2-a -mtune=cortex-a55 -ffast-math -fomit-frame-pointer
+sudo chrt -f 99 ./[file]
+
+Set CPU governor to perfomance & both min and max freq to 1.42GHz to avoid undefined behavior through cpufreq
+sudo apt-get install cpufrequtils
+sudo nano /etc/default/cpufrequtils
+GOVERNOR="performance"
+MIN_SPEED="1.42GHz"
+MAX_SPEED="1.42GHz"
+sudo systemctl enable cpufrequtils
+sudo systemctl restart cpufrequtils
+
+## Testing info:
 For motor testing:
 - Go by wire colors
-For servo testing:
-- TODO: fix variable clock speed?
+white is PWM
+orange -> yellow is brake
+expects 12V, freq from 4khz - 16khz, digital low is on, high is off. Full range pwm/
+
+
+For servo:
+Expects 5v, 20ms period (50hz), expects duty cycle from .5ms - 2.5ms
 
 ## Other links/hardware
 Camera setup: https://docs.radxa.com/en/zero/zero3/accessories/camera
