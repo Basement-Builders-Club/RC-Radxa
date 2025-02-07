@@ -1,14 +1,13 @@
 ## TODO
 Combine RC_Motor & RC_Servo
 
-Isolate core on Radxa to run RC.c isolated from OS and other programs
-
 Fix Unity (currently controllers not working properly)
 
 Build
 
 ## Code to be ran on Radxa facilitating input and video transmission.
-RC.c is the current working file.
+RC.c will be the current working file.
+RC_Servo.c is the current most up to date and working file.
 
 ## Interface info
 Running PoseClient after starting the scene will run a test client
@@ -71,6 +70,9 @@ Compilation:
 gcc -o [file] [file].c -lgpiod -lpthread -O3 -march=armv8.2-a -mtune=cortex-a55 -ffast-math -fomit-frame-pointer
 
 sudo chrt -f 99 ./[file]
+taskset -c 3 ./your_program
+sudo chrt -f 99 taskset -c 3 nice -n -20 ionice -c 1 -n 0 ./your_program
+
 
 Set CPU governor to perfomance & both min and max freq to 1.42GHz to avoid undefined behavior through cpufreq
 

@@ -3,40 +3,28 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <gpiod.h>
 #include <pthread.h>
-#include <mraa/pwm.h>
-#include <stdbool.h>
-
 
 #define PORT 8080
 #define BUFFER_SIZE 256
 #define WHEEL_MIN 0
 #define WHEEL_MAX 360
-#define SERVO_MIN 0.975   //0.5ms
-#define SERVO_MAX 0.875   //2.5ms
-#define SERVO_PERIOD 20000
-#define MOTOR_MIN 0.01
-#define MOTOR_MAX 0.99
-#define MOTOR_PERIOD 63
+#define DUTY_CYCLE_PERIOD_MICROSEC 20000
+#define MIN_PULSE_US 500     // 1.0ms minimum pulse width
+#define MAX_PULSE_US 2500   // 2.0ms maximum pulse width
 #define PACKET_CHAR_LEN 5
-const int SERVO_PIN = 16;
-const int MOTOR_PIN = 18;
-float servo_Duty = 0.925; //1.5ms (set to middle)
-float motor_Duty = 0.0; //off
-mraa_pwm_context SERVO;
-mraa_pwm_context MOTOR;
-mraa_result_t result;
-#define servo 1
-#define motor 0
 
 int Init_TCP (int *sock, struct sockaddr_in *serv_addr);
+int Init_GPIO (struct gpiod_chip **chip, struct gpiod_line **linePWM, struct gpiod_line **lineButton);
 bool Read (int sock, int *wheelAngle, bool *accelerator);
+bool Set_PWM (int wheelAngle, struct gpiod_line *linePWM, int* PWMValue);
 void* Thread_PWM (void* args);
-int pwm_Init(int pin, int period, float duty, bool type);
 
 struct PWMArgs
 {
     int* wheelAngle;
+    struct gpiod_line* linePWM;
     int* PWMValue;
 };
 
@@ -47,15 +35,18 @@ int main()
     bool accelerator = false;
     int PWMValue = 0;
     struct sockaddr_in serv_addr;
+    struct gpiod_chip *chip;
+    struct gpiod_line *linePWM;
+    struct gpiod_line *lineButton;
 
     // Initialize TCP connection
-    if (Init_TCP(&sock, &serv_addr) < 0) return -1;
-
-    // Init PWM
-    pwm_Init(SERVO_PIN, SERVO_PERIOD, servo_Duty, servo);
+    if (Init_TCP(&sock, &serv_addr) < 0)
+        return -1;
+    
+    Init_GPIO(&chip, &linePWM, &lineButton);
 
     // Initialize PWM thread
-    struct PWMArgs pwmArgs = {&wheelAngle, &PWMValue};
+    struct PWMArgs pwmArgs = {&wheelAngle, linePWM, &PWMValue};
     pthread_t pwmThread;
     pthread_create (&pwmThread, NULL, Thread_PWM, (void*) &pwmArgs);
 
@@ -73,13 +64,10 @@ int main()
     // Close the socket
     close (sock);
 
-    // Stop the PWM after running for the specified duration
-    mraa_pwm_enable(SERVO, 0);
-    //mraa_pwm_enable(MOTOR, 0);
-
-    // Close the PWM context
-    mraa_pwm_close(SERVO);
-    //mraa_pwm_close(MOTOR);
+    // Close GPIO
+    gpiod_line_release (linePWM);
+    gpiod_line_release (lineButton);
+    gpiod_chip_close (chip);
 
     return 0;
 }
@@ -130,26 +118,23 @@ bool Read (int sock, int *wheelAngle, bool *accelerator)
     return true;
 }
 
-/*
-#define SERVO_MIN 0.975   //0.5ms
-#define SERVO_MAX 0.875   //2.5ms
-#define SERVO_PERIOD 20000
-*/
-
 // Set PWM for GPIO
-bool Set_PWM (int wheelAngle, int* PWMValue)
+bool Set_PWM (int wheelAngle, struct gpiod_line *linePWM, int* PWMValue)
 {
     // Calculate PWM duty cycle (0% to 100%)
     if (wheelAngle > WHEEL_MAX) wheelAngle = WHEEL_MAX;
     if (wheelAngle < WHEEL_MIN) wheelAngle = WHEEL_MIN;
     float duty_cycle = ((float) wheelAngle - WHEEL_MIN) / (WHEEL_MAX - WHEEL_MIN);
 
-    float duty = duty_cycle * (SERVO_MIN - SERVO_MAX) + SERVO_MAX;
-    *PWMValue = duty;
+    int PWM = duty_cycle * (MAX_PULSE_US - MIN_PULSE_US) + MIN_PULSE_US;
+    *PWMValue = PWM;
 
-    //set cycle
-    mraa_pwm_write(SERVO, duty);
-    printf("Duty: %f\n", duty);
+    //on
+    gpiod_line_set_value (linePWM, 1);
+    usleep (PWM);
+    //off
+    gpiod_line_set_value (linePWM, 0);
+    usleep (DUTY_CYCLE_PERIOD_MICROSEC + 1 - PWM);
 }
 
 // Thread function for PWM handling
@@ -158,7 +143,7 @@ void* Thread_PWM(void* args) {
 
     // Use the wheelAngle value for PWM control
     while (1)
-        Set_PWM(*(pwmArgs->wheelAngle), pwmArgs->PWMValue);
+        Set_PWM(*(pwmArgs->wheelAngle), pwmArgs->linePWM, pwmArgs->PWMValue);
 
     return NULL;
 }
@@ -198,25 +183,17 @@ int Init_TCP (int *sock, struct sockaddr_in *serv_addr)
     return 0;
 }
 
-int pwm_Init(int pin, int period, float duty, bool type){
-    // Initialize PWM on the pin
-    if(type == servo) {
-        SERVO = mraa_pwm_init(pin);
-         // Set PWM period 
-        mraa_pwm_period_us(SERVO, period);
-        // Set PWM duty cycle to 1.5 ms (1.5 ms / 20 ms = 0.075 or 7.5%)
-        mraa_pwm_write(SERVO, duty);  // 7.5% duty cycle
+// Initialize GPIO
+int Init_GPIO(struct gpiod_chip **chip, struct gpiod_line **linePWM, struct gpiod_line **lineButton)
+{
+    const char *chipname = "gpiochip3";
 
-        mraa_pwm_enable(SERVO, 1);
-    }
-    else if(type == motor) {
-        MOTOR = mraa_pwm_init(pin);
-        // Set PWM period 
-        mraa_pwm_period_us(MOTOR, period);
-        // Set PWM duty cycle to 1.5 ms (1.5 ms / 20 ms = 0.075 or 7.5%)
-        mraa_pwm_write(MOTOR, duty);  // 7.5% duty cycle
+    *chip = gpiod_chip_open_by_name (chipname);
+    *linePWM = gpiod_chip_get_line (*chip, 1);
+    *lineButton = gpiod_chip_get_line (*chip, 2);
 
-        mraa_pwm_enable(MOTOR, 1);
-    }
+    gpiod_line_request_output (*linePWM, "out", 0);
+    gpiod_line_request_input (*lineButton, "in");
 
+    return 1;
 }
