@@ -149,7 +149,7 @@ bool Read (int sock, int *wheel_angle, int *accelerator)
 }
 
 // Set PWM for GPIO
-void Set_PWM (mraa_pwm_context context, int* input, float* duty_out, 
+void Set_PWM (mraa_pwm_context context, int input, float* duty_out, 
               int input_min, int input_max, 
               float duty_min, float duty_max)
 {
