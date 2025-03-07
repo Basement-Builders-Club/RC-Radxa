@@ -33,14 +33,15 @@ mraa_result_t result;
 #define motor 0
 
 int Init_TCP (int *sock, struct sockaddr_in *serv_addr);
-bool Read (int sock, int *wheel_angle, bool *accelerator);
+bool Read (int sock, int *wheel_angle, int *accelerator);
 void* Thread_PWM (void* args);
 int PWM_Init (int pin, int period, float duty, bool type);
 
 struct PWM_Args
 {
+  mraa_pwm_context context;
   int* input;
-  int* PWM_value;
+  float* duty_out;
   int input_min;
   int input_max;
   float duty_min;
@@ -52,8 +53,6 @@ int main()
   int sock = 0;
   int wheel_angle = 0;
   int accelerator = 0;
-  int motor_pwm = 0;
-  int servo_pwm = 0;
   struct sockaddr_in serv_addr;
 
   // Initialize TCP connection
@@ -64,10 +63,10 @@ int main()
   PWM_Init (MOTOR_PIN, MOTOR_PERIOD, motor_duty, motor);
 
   // Initialize PWM threads
-  struct PWM_Args servo_args = {&wheel_angle, &servo_pwm, 
+  struct PWM_Args servo_args = {SERVO, &wheel_angle, &servo_duty, 
                                 WHEEL_MIN, WHEEL_MAX, 
                                 SERVO_MIN, SERVO_MAX};
-  struct PWM_Args motor_args = {&accelerator, &motor_pwm,
+  struct PWM_Args motor_args = {MOTOR, &accelerator, &motor_duty,
                                 TRIGGER_MIN, TRIGGER_MAX,
                                 MOTOR_MIN, MOTOR_MAX};
 
@@ -85,8 +84,8 @@ int main()
 
     printf ("Received Angle: %d\n", wheel_angle);
     printf ("Accelerator: %d\n", accelerator);
-    printf ("Servo PWM: %i\n", servo_pwm);
-    printf ("Motor PWM: %i\n", motor_pwm);
+    printf ("Servo Duty: %f\n", servo_duty);
+    printf ("Motor Duty: %f\n", motor_duty);
   }
 
   // Close the socket
@@ -150,7 +149,8 @@ bool Read (int sock, int *wheel_angle, int *accelerator)
 }
 
 // Set PWM for GPIO
-void Set_PWM (int input, int* PWM_value, int input_min, int input_max, 
+void Set_PWM (mraa_pwm_context context, int* input, float* duty_out, 
+              int input_min, int input_max, 
               float duty_min, float duty_max)
 {
   // Calculate PWM duty cycle (0% to 100%)
@@ -159,10 +159,10 @@ void Set_PWM (int input, int* PWM_value, int input_min, int input_max,
   float duty_cycle = ((float) input - input_min) / (input_max - input_min);
 
   float duty = duty_min + duty_cycle * (duty_max - duty_min);
-  *PWM_value = duty;
+  *duty_out = duty;
 
   //set cycle
-  mraa_pwm_write(SERVO, duty);
+  mraa_pwm_write (context, duty);
   printf("Duty: %f\n", duty);
 }
 
@@ -172,9 +172,9 @@ void* Thread_PWM(void* args) {
 
   // Use the wheel_angle value for PWM control
   while (1) {
-    Set_PWM (*(pwm_args->input), pwm_args->PWM_value, 
-               pwm_args->input_min, pwm_args->input_max, 
-               pwm_args->duty_min, pwm_args->duty_max);
+    Set_PWM (pwm_args->context, *(pwm_args->input), pwm_args->duty_out, 
+             pwm_args->input_min, pwm_args->input_max, 
+             pwm_args->duty_min, pwm_args->duty_max);
   }
 
   return NULL;
@@ -215,7 +215,7 @@ int Init_TCP (int *sock, struct sockaddr_in *serv_addr)
   return 0;
 }
 
-int PWM_Init(int pin, int period, float duty, bool type){
+int PWM_Init (int pin, int period, float duty, bool type){
   // Initialize PWM on the pin
   if (type == servo) {
     SERVO = mraa_pwm_init(pin);
@@ -243,4 +243,6 @@ int PWM_Init(int pin, int period, float duty, bool type){
 
     mraa_pwm_enable(MOTOR, 1);
   }
+
+  return 0;
 }
