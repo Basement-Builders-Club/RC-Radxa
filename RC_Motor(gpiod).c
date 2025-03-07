@@ -16,14 +16,14 @@
 int Init_TCP (int *sock, struct sockaddr_in *serv_addr);
 int Init_GPIO (struct gpiod_chip **chip, struct gpiod_line **linePWM, struct gpiod_line **lineButton);
 bool Read (int sock, int *wheelAngle, bool *accelerator);
-bool Set_PWM (int wheelAngle, struct gpiod_line *linePWM, int* PWMValue);
+bool Set_PWM (int wheelAngle, struct gpiod_line *linePWM, int* PWM_value);
 void* Thread_PWM (void* args);
 
-struct PWMArgs
+struct PWM_Args
 {
     int* wheelAngle;
     struct gpiod_line* linePWM;
-    int* PWMValue;
+    int* PWM_value;
 };
 
 int main()
@@ -31,7 +31,7 @@ int main()
     int sock = 0;
     int wheelAngle = 0;
     bool accelerator = false;
-    int PWMValue = 0;
+    int PWM_value = 0;
     struct sockaddr_in serv_addr;
     struct gpiod_chip *chip;
     struct gpiod_line *linePWM;
@@ -44,7 +44,7 @@ int main()
     Init_GPIO(&chip, &linePWM, &lineButton);
 
     // Initialize PWM thread
-    struct PWMArgs pwmArgs = {&wheelAngle, linePWM, &PWMValue};
+    struct PWM_Args pwmArgs = {&wheelAngle, linePWM, &PWM_value};
     pthread_t pwmThread;
     pthread_create (&pwmThread, NULL, Thread_PWM, (void*) &pwmArgs);
 
@@ -56,7 +56,7 @@ int main()
 
         printf ("Received Angle: %d\n", wheelAngle);
         printf ("Accelerator: %d\n", accelerator);
-        printf ("PWM: %i\n", PWMValue);
+        printf ("PWM: %i\n", PWM_value);
     }
 
     // Close the socket
@@ -117,7 +117,7 @@ bool Read (int sock, int *wheelAngle, bool *accelerator)
 }
 
 // Set PWM for GPIO
-bool Set_PWM (int wheelAngle, struct gpiod_line *linePWM, int* PWMValue)
+bool Set_PWM (int wheelAngle, struct gpiod_line *linePWM, int* PWM_value)
 {
     // Calculate PWM duty cycle (0% to 100%)
     if (wheelAngle > WHEEL_MAX) wheelAngle = WHEEL_MAX;
@@ -125,7 +125,7 @@ bool Set_PWM (int wheelAngle, struct gpiod_line *linePWM, int* PWMValue)
     float duty_cycle = ((float) wheelAngle - WHEEL_MIN) / (WHEEL_MAX - WHEEL_MIN);
 
     int PWM = duty_cycle * DUTY_CYCLE_PERIOD_MICROSEC;
-    *PWMValue = PWM;
+    *PWM_value = PWM;
 
     //on
     gpiod_line_set_value (linePWM, 1);
@@ -137,11 +137,11 @@ bool Set_PWM (int wheelAngle, struct gpiod_line *linePWM, int* PWMValue)
 
 // Thread function for PWM handling
 void* Thread_PWM(void* args) {
-    struct PWMArgs* pwmArgs = (struct PWMArgs*) args;
+    struct PWM_Args* pwmArgs = (struct PWM_Args*) args;
 
     // Use the wheelAngle value for PWM control
     while (1)
-        Set_PWM(*(pwmArgs->wheelAngle), pwmArgs->linePWM, pwmArgs->PWMValue);
+        Set_PWM(*(pwmArgs->wheelAngle), pwmArgs->linePWM, pwmArgs->PWM_value);
 
     return NULL;
 }
