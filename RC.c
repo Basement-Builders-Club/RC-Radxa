@@ -20,7 +20,7 @@
 #define MOTOR_MAX 0.99
 #define MOTOR_PERIOD 63
 #define PACKET_CHAR_LEN 6
-#define STEP 0.00001
+#define STEP 0.01
 
 const int SERVO_PIN = 16;
 const int MOTOR_PIN = 18;
@@ -33,16 +33,18 @@ mraa_result_t result;
 #define motor 0
 
 int Init_TCP (int *sock, struct sockaddr_in *serv_addr);
-bool Read (int sock, int *wheel_angle, int *accelerator);
+bool Read (int sock, float *wheel_angle, float *accelerator);
 void* Thread_PWM (void* args);
 int PWM_Init (int pin, int period, float duty, bool type);
 
 bool rev = 0;
+float vel = 0;
+float mag = 0;
 
 struct PWM_Args
 {
   mraa_pwm_context context;
-  int* input;
+  float* input;
   float* duty_out;
   int input_min;
   int input_max;
@@ -53,8 +55,8 @@ struct PWM_Args
 int main()
 {
   int sock = 0;
-  int wheel_angle = 0;
-  int accelerator = 0;
+  float wheel_angle = 0;
+  float accelerator = 0;
   struct sockaddr_in serv_addr;
 
   // Initialize TCP connection
@@ -68,7 +70,7 @@ int main()
   struct PWM_Args servo_args = {SERVO, &wheel_angle, &servo_duty, 
                                 WHEEL_MIN, WHEEL_MAX, 
                                 SERVO_MIN, SERVO_MAX};
-  struct PWM_Args motor_args = {MOTOR, &accelerator, &motor_duty,
+  struct PWM_Args motor_args = {MOTOR, &mag, &motor_duty,
                                 TRIGGER_MIN, TRIGGER_MAX,
                                 MOTOR_MIN, MOTOR_MAX};
 
@@ -85,7 +87,9 @@ int main()
         //break;
 
     printf ("Received Angle: %d\n", wheel_angle);
-    printf ("Accelerator: %d\n", accelerator);
+    printf ("Accelerator: %f\n", accelerator);
+    printf ("Velocity: %f\n", vel);
+    printf ("Magnitude: %f\n", mag);
     printf ("Servo Duty: %f\n", servo_duty);
     printf ("Motor Duty: %f\n", motor_duty);
   }
@@ -105,7 +109,7 @@ int main()
 }
 
 // Read data from Unity
-bool Read (int sock, int *wheel_angle, int *accelerator)
+bool Read (int sock, float *wheel_angle, float *accelerator)
 {
   int valread;
   char buffer[BUFFER_SIZE] = {0};
@@ -146,15 +150,22 @@ bool Read (int sock, int *wheel_angle, int *accelerator)
     return false;
   }
   *accelerator = atoi (token);
-  rev = *accelerator < 0;
-  *accelerator *= *accelerator < 0 ? -1 : 1;
+  vel = vel + *accelerator * STEP;
+  vel = vel > TRIGGER_MAX ? TRIGGER_MAX : vel;
+  vel = vel < -1 * TRIGGER_MAX ? -1 * TRIGGER_MAX : vel;
+
+  rev = vel < 0;
+  mag = vel < 0 ? -1 * vel : vel;
+
+  if (*accelerator == 0) mag = mag > 1 ? mag - 1 : 0; 
+  vel = rev ? mag * -1: mag;
 
   printf ("Reverse: %i\n",rev);
   return true;
 }
 
 // Set PWM for GPIO
-void Set_PWM (mraa_pwm_context context, int input, float* duty_out, 
+void Set_PWM (mraa_pwm_context context, float input, float* duty_out, 
               int input_min, int input_max, 
               float duty_min, float duty_max)
 {
