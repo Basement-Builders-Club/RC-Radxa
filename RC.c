@@ -11,12 +11,12 @@
 #define BUFFER_SIZE 256
 #define WHEEL_MIN 0
 #define WHEEL_MAX 360
-#define TRIGGER_MIN -100
+#define TRIGGER_MIN 0
 #define TRIGGER_MAX 100
 #define SERVO_MIN 0.975   //0.5ms
 #define SERVO_MAX 0.875   //2.5ms
 #define SERVO_PERIOD 20000
-#define MOTOR_MIN 0.01
+#define MOTOR_MIN 0.00
 #define MOTOR_MAX 0.99
 #define MOTOR_PERIOD 63
 #define PACKET_CHAR_LEN 6
@@ -36,6 +36,8 @@ int Init_TCP (int *sock, struct sockaddr_in *serv_addr);
 bool Read (int sock, int *wheel_angle, int *accelerator);
 void* Thread_PWM (void* args);
 int PWM_Init (int pin, int period, float duty, bool type);
+
+bool rev = 0;
 
 struct PWM_Args
 {
@@ -144,12 +146,15 @@ bool Read (int sock, int *wheel_angle, int *accelerator)
     return false;
   }
   *accelerator = atoi (token);
+  rev = *accelerator < 0;
+  *accelerator *= *accelerator < 0 ? -1 : 1;
 
+  printf ("Reverse: %i\n",rev);
   return true;
 }
 
 // Set PWM for GPIO
-void Set_PWM (mraa_pwm_context context, int* input, float* duty_out, 
+void Set_PWM (mraa_pwm_context context, int input, float* duty_out, 
               int input_min, int input_max, 
               float duty_min, float duty_max)
 {
@@ -163,7 +168,6 @@ void Set_PWM (mraa_pwm_context context, int* input, float* duty_out,
 
   //set cycle
   mraa_pwm_write (context, duty);
-  printf("Duty: %f\n", duty);
 }
 
 // Thread function for PWM handling
