@@ -47,15 +47,32 @@ sudo nmcli connection up AP
 
 FFMPEG video stream command (FFMPEG must be compiled and set up correctly before hand https://docs.radxa.com/en/zero/zero3/app-development/rtsp)
 
-nohup ./mediamtx &
+Old:
 
-sudo ffmpeg -fflags nobuffer -fflags discardcorrupt -flags low_delay -re -f v4l2 -i /dev/video0 -preset ultrafast -tune zerolatency -c:v hevc -omit_video_pes_length 1 -rc_mode 0 -r 30 -level 30 -f rtsp rtsp://<IP>:8554/stream
+nohup ./mediamtx &
+sudo ffmpeg -fflags nobuffer -fflags discardcorrupt -flags low_delay -re -f v4l2 -i /dev/video0 -preset ultrafast -tune zerolatency -c:v hevc_rkmpp_encoder -omit_video_pes_length 1 -rc_mode 0 -r 30 -level 30 -f rtsp rtsp://10.42.0.1:8554/stream
+
+New:
+
+nohup ./mediamtx &
+sudo ffmpeg -fflags nobuffer -fflags discardcorrupt -flags low_delay -f v4l2 -input_format yuyv422 -video_size 1920x1080 -i /dev/video0 -preset ultrafast -tune zerolatency -c:v hevc_rkmpp_encoder -g 30 -pix_fmt yuv420p -omit_video_pes_length 1 -rc_mode 0 -r 30 -level 30 -f rtsp rtsp://10.42.0.1:8554/stream
+
+nohup ./mediamtx &
+sudo ffmpeg -fflags nobuffer -fflags discardcorrupt -flags low_delay -re -f v4l2 -i /dev/video0 -preset ultrafast -tune zerolatency -c:v hevc_rkmpp_encoder -omit_video_pes_length 1 -rc_mode 0 -r 30 -level 30 -f rtsp rtsp://10.42.0.1:8554/stream
+
+nohup ./mediamtx &
+sudo ffmpeg -fflags nobuffer -fflags discardcorrupt -flags low_delay \
+  -f v4l2 -input_format yuyv422 -video_size 1920x1080 -i /dev/video0 \
+  -preset ultrafast -tune zerolatency \
+  -c:v hevc_rkmpp_encoder -g 30 -pix_fmt yuv420p -omit_video_pes_length 1 -rc_mode 0 -r 30 -level 30 \
+  -f rtsp rtsp://10.42.0.1:8554/stream
+
 
 (10.42.0.1 (Direct) or 192.168.1.35)
 
 FFPLAY (Client side, install FFMPEG through "choco install ffmpeg" in windows terminal [install chocolatey if needed])
 
-ffplay -probesize 32 -analyzeduration 0 -sync ext -fflags nobuffer -fflags discardcorrupt -flags low_delay -tune zerolatency -flags2 fast -preset ultrafast -framedrop -avioflags direct -strict experimental -rtsp_transport tcp rtsp://<IP>:8554/stream
+ffplay -probesize 32 -analyzeduration 0 -sync ext -fflags nobuffer -fflags discardcorrupt -flags low_delay -tune zerolatency -flags2 fast -preset ultrafast -framedrop -avioflags direct -strict experimental -rtsp_transport udp rtsp://10.42.0.1:8554/stream
 
 (10.42.0.1 (Direct) or 192.168.1.35)
 

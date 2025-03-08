@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <mraa/pwm.h>
 #include <stdbool.h>
+#include <gpiod.h>
 
 #define PORT 8080
 #define BUFFER_SIZE 256
@@ -36,6 +37,7 @@ int Init_TCP (int *sock, struct sockaddr_in *serv_addr);
 bool Read (int sock, float *wheel_angle, float *accelerator);
 void* Thread_PWM (void* args);
 int PWM_Init (int pin, int period, float duty, bool type);
+int Init_GPIO (struct gpiod_chip **chip, struct gpiod_line **lineRev);
 
 bool rev = 0;
 float vel = 0;
@@ -50,6 +52,7 @@ struct PWM_Args
   int input_max;
   float duty_min;
   float duty_max;
+  struct gpiod_line *lineRev;
 };
 
 int main()
@@ -58,6 +61,8 @@ int main()
   float wheel_angle = 0;
   float accelerator = 0;
   struct sockaddr_in serv_addr;
+  struct gpiod_chip *chip;
+  struct gpiod_line *lineRev;
 
   // Initialize TCP connection
   if (Init_TCP(&sock, &serv_addr) < 0) return -1;
@@ -65,14 +70,15 @@ int main()
   // Init PWM
   PWM_Init (SERVO_PIN, SERVO_PERIOD, servo_duty, servo);
   PWM_Init (MOTOR_PIN, MOTOR_PERIOD, motor_duty, motor);
+  Init_GPIO(&chip, &lineRev);
 
   // Initialize PWM threads
   struct PWM_Args servo_args = {SERVO, &wheel_angle, &servo_duty, 
                                 WHEEL_MIN, WHEEL_MAX, 
-                                SERVO_MIN, SERVO_MAX};
+                                SERVO_MIN, SERVO_MAX, lineRev};
   struct PWM_Args motor_args = {MOTOR, &mag, &motor_duty,
                                 TRIGGER_MIN, TRIGGER_MAX,
-                                MOTOR_MIN, MOTOR_MAX};
+                                MOTOR_MIN, MOTOR_MAX, lineRev};
 
   pthread_t servo_thread;
   pthread_t motor_thread;
@@ -104,6 +110,8 @@ int main()
   // Close the PWM context
   mraa_pwm_close(SERVO);
   mraa_pwm_close(MOTOR);
+
+  gpiod_chip_close(chip);
 
   return 0;
 }
@@ -167,7 +175,7 @@ bool Read (int sock, float *wheel_angle, float *accelerator)
 // Set PWM for GPIO
 void Set_PWM (mraa_pwm_context context, float input, float* duty_out, 
               int input_min, int input_max, 
-              float duty_min, float duty_max)
+              float duty_min, float duty_max, bool rev, struct gpiod_line *lineRev)
 {
   // Calculate PWM duty cycle (0% to 100%)
   if (input > input_max) input = input_max;
@@ -179,6 +187,8 @@ void Set_PWM (mraa_pwm_context context, float input, float* duty_out,
 
   //set cycle
   mraa_pwm_write (context, duty);
+  if(rev) gpiod_line_set_value (lineRev, 1);
+  else gpiod_line_set_value (lineRev, 0);
 }
 
 // Thread function for PWM handling
@@ -189,7 +199,7 @@ void* Thread_PWM(void* args) {
   while (1) {
     Set_PWM (pwm_args->context, *(pwm_args->input), pwm_args->duty_out, 
              pwm_args->input_min, pwm_args->input_max, 
-             pwm_args->duty_min, pwm_args->duty_max);
+             pwm_args->duty_min, pwm_args->duty_max, rev, pwm_args->lineRev);
   }
 
   return NULL;
@@ -260,4 +270,16 @@ int PWM_Init (int pin, int period, float duty, bool type){
   }
 
   return 0;
+}
+
+int Init_GPIO(struct gpiod_chip **chip, struct gpiod_line **lineRev)
+{
+    const char *chipname = "gpiochip3";
+
+    *chip = gpiod_chip_open_by_name (chipname);
+    *lineRev = gpiod_chip_get_line (*chip, 8);
+
+    gpiod_line_request_output (*lineRev, "out", 0);
+
+    return 1;
 }
