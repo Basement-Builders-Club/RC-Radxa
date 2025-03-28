@@ -1,13 +1,13 @@
 ## TODO
-Combine RC_Motor & RC_Servo
 
-Fix Unity (currently controllers not working properly)
+Make Unity look nice
+
+Make PCB
 
 Build
 
 ## Code to be ran on Radxa facilitating input and video transmission.
-RC.c will be the current working file.
-RC_Servo.c is the current most up to date and working file.
+RC.c is current most up to date and working file.
 
 ## Interface info
 Running PoseClient after starting the scene will run a test client
@@ -29,7 +29,7 @@ Connect to the Radxa access point from the server computer, and use ipconfig to 
 
 wsl
 
-gcc -o RC RC.c -lgpiod
+gcc -o RC RC.c -lgpiod -lmraa -lpthread
 
 ./RC
 
