@@ -10,8 +10,8 @@
 
 #define PORT 8080
 #define BUFFER_SIZE 256
-#define WHEEL_MIN 0
-#define WHEEL_MAX 360
+#define WHEEL_MIN 90
+#define WHEEL_MAX 270
 #define TRIGGER_MIN 0
 #define TRIGGER_MAX 100
 #define SERVO_MIN 0.975   //0.5ms
@@ -73,8 +73,8 @@ int main()
   Init_GPIO(&chip, &lineRev);
 
   // Initialize PWM threads
-  struct PWM_Args servo_args = {SERVO, &wheel_angle, &servo_duty, 
-                                WHEEL_MIN, WHEEL_MAX, 
+  struct PWM_Args servo_args = {SERVO, &wheel_angle, &servo_duty,
+                                WHEEL_MIN, WHEEL_MAX,
                                 SERVO_MIN, SERVO_MAX, lineRev};
   struct PWM_Args motor_args = {MOTOR, &mag, &motor_duty,
                                 TRIGGER_MIN, TRIGGER_MAX,
@@ -125,7 +125,7 @@ bool Read (int sock, float *wheel_angle, float *accelerator)
   printf ("Waiting for data...\n");
 
   valread = read (sock, buffer, BUFFER_SIZE);
-  
+
   // If didnt read, print this to terminal
   if (valread < 0)
     printf ("Read error");
@@ -150,6 +150,7 @@ bool Read (int sock, float *wheel_angle, float *accelerator)
     return false;
   }
   *wheel_angle = atoi (token);
+  *wheel_angle = -(*wheel_angle - 180) + 180;
 
   // Get accelerator value
   token = strtok (NULL, ",");
@@ -165,7 +166,7 @@ bool Read (int sock, float *wheel_angle, float *accelerator)
   rev = vel < 0;
   mag = vel < 0 ? -1 * vel : vel;
 
-  if (*accelerator == 0) mag = mag > 1 ? mag - 1 : 0; 
+  if (*accelerator == 0) mag = mag > 1 ? mag - 1 : 0;
   vel = rev ? mag * -1: mag;
 
   printf ("Reverse: %i\n",rev);
@@ -173,8 +174,8 @@ bool Read (int sock, float *wheel_angle, float *accelerator)
 }
 
 // Set PWM for GPIO
-void Set_PWM (mraa_pwm_context context, float input, float* duty_out, 
-              int input_min, int input_max, 
+void Set_PWM (mraa_pwm_context context, float input, float* duty_out,
+              int input_min, int input_max,
               float duty_min, float duty_max, bool rev, struct gpiod_line *lineRev)
 {
   // Calculate PWM duty cycle (0% to 100%)
@@ -197,8 +198,8 @@ void* Thread_PWM(void* args) {
 
   // Use the wheel_angle value for PWM control
   while (1) {
-    Set_PWM (pwm_args->context, *(pwm_args->input), pwm_args->duty_out, 
-             pwm_args->input_min, pwm_args->input_max, 
+    Set_PWM (pwm_args->context, *(pwm_args->input), pwm_args->duty_out,
+             pwm_args->input_min, pwm_args->input_max,
              pwm_args->duty_min, pwm_args->duty_max, rev, pwm_args->lineRev);
   }
 
@@ -230,7 +231,7 @@ int Init_TCP (int *sock, struct sockaddr_in *serv_addr)
     perror ("Invalid address/ Address not supported");
     return -1;
   }
-
+        printf("If stuck here, need to add Unity to firewall exclusion\n");
   if (connect (*sock, (struct sockaddr*) serv_addr, sizeof (*serv_addr)) < 0) {
     perror ("Connection Failed");
     return -1;
